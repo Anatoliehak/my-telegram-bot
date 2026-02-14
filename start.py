@@ -1,14 +1,28 @@
 import telebot
 from telebot import types
+import threading
+from flask import Flask
+import os
 
-# ТОКЕН
+# --- ХАК ДЛЯ БЕСПЛАТНОГО ХОСТИНГА (Render) ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Бот работает!"
+
+def run_flask():
+    # Порт 8080 — это то, что ищет Render, чтобы не отключать бота
+    app.run(host='0.0.0.0', port=8080)
+# ---------------------------------------------
+
+# ТВОЙ ТОКЕН
 API_TOKEN = '8550938957:AAEI8uSkNGckcvLFO-U1CRRXROXXHX8bgEI'
 bot = telebot.TeleBot(API_TOKEN)
 
-# ССЫЛКА НА KWORK
+# ТВОЯ ССЫЛКА НА КВОРК
 KWORK_LINK = 'https://kwork.com/user/todosanatolie990'
 
-# Словарь с текстами (Оптимизация удалена)
 strings = {
     'ru': {
         'welcome': "Выберите язык / Choose a language:",
@@ -50,25 +64,27 @@ def start(message):
 def callback_inline(call):
     cid = call.message.chat.id
     mid = call.message.message_id
+    
+    # Устанавливаем язык по умолчанию, если он не выбран
+    if cid not in user_lang:
+        user_lang[cid] = 'ru'
+    
+    lang = user_lang[cid]
 
     if call.data.startswith('set_'):
         lang = call.data.split('_')[1]
         user_lang[cid] = lang
         show_main_menu(cid, mid, lang)
-
     elif call.data == 'main_menu':
-        lang = user_lang.get(cid, 'ru')
         show_main_menu(cid, mid, lang)
-
     elif call.data in ['services', 'games', 'price']:
-        lang = user_lang.get(cid, 'ru')
         if call.data == 'services': text = strings[lang]['info_services']
         elif call.data == 'games': text = strings[lang]['info_games']
         elif call.data == 'price': text = strings[lang]['info_price']
         show_submenu(cid, mid, text, lang)
 
 def show_main_menu(cid, mid, lang):
-    markup = types.InlineKeyboardMarkup(row_width=1) # Сделал кнопки в один столбец для красоты
+    markup = types.InlineKeyboardMarkup(row_width=1)
     b1 = types.InlineKeyboardButton(strings[lang]['btn_services'], callback_data='services')
     b2 = types.InlineKeyboardButton(strings[lang]['btn_games'], callback_data='games')
     b3 = types.InlineKeyboardButton(strings[lang]['btn_price'], callback_data='price')
@@ -81,6 +97,10 @@ def show_submenu(cid, mid, text, lang):
     back = types.InlineKeyboardButton(strings[lang]['btn_back'], callback_data='main_menu')
     markup.add(back)
     bot.edit_message_text(chat_id=cid, message_id=mid, text=text, reply_markup=markup)
-
-print("Бот запущен! Оптимизация удалена, остались только Игры и Python.")
-bot.infinity_polling()
+# ИСПРАВЛЕНО: Теперь с двойными подчеркиваниями
+if __name__ == "__main__":
+    # Запускаем Flask в отдельном потоке (наш хак для Render)
+    threading.Thread(target=run_flask).start()
+    print("Бот запущен!")
+    # Запускаем самого бота
+    bot.infinity_polling()
